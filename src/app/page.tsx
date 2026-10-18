@@ -1,4 +1,6 @@
 
+import Link from "next/link";
+
 const products = [
   {
     name: "SSL Pay",
@@ -6,6 +8,7 @@ const products = [
     description:
       "USDC payment infrastructure for businesses, powered by Base.",
     status: "In Development",
+    href: "/pay",
   },
   {
     name: "Supply Chain Verification",
@@ -13,6 +16,7 @@ const products = [
     description:
       "Verifiable blockchain records for products and supply chains.",
     status: "Planned",
+    href: null,
   },
   {
     name: "Smart Contract Automation",
@@ -20,6 +24,7 @@ const products = [
     description:
       "Programmable contracts and workflows for business operations.",
     status: "Planned",
+    href: null,
   },
   {
     name: "Loyalty & Memberships",
@@ -27,6 +32,7 @@ const products = [
     description:
       "Blockchain-enabled rewards, memberships, and loyalty programs.",
     status: "Planned",
+    href: null,
   },
   {
     name: "Asset Tokenization",
@@ -34,6 +40,7 @@ const products = [
     description:
       "Infrastructure for representing real-world assets onchain.",
     status: "Planned",
+    href: null,
   },
 ];
 
@@ -41,21 +48,45 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#080D16] text-white">
       <div className="mx-auto max-w-6xl px-6">
-        <header className="flex items-center justify-between border-b border-white/10 py-6">
-          <a href="/" className="text-lg font-bold tracking-wide">
-            SHADOW <span className="text-blue-400">STACK</span> LABS
-          </a>
 
-          <a
-            href="https://github.com/Shadow-Stack-Labs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-slate-400 hover:text-white"
+        {/* HEADER */}
+        <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/10 py-6">
+          <Link
+            href="/"
+            className="text-lg font-bold tracking-wide"
           >
-            GitHub ↗
-          </a>
+            SHADOW{" "}
+            <span className="text-blue-400">STACK</span>{" "}
+            LABS
+          </Link>
+
+          <nav className="flex flex-wrap items-center gap-5">
+            <Link
+              href="/pay"
+              className="text-sm font-medium text-blue-400 hover:text-blue-300"
+            >
+              SSL Pay
+            </Link>
+
+            <Link
+              href="/pay/dashboard"
+              className="text-sm text-slate-300 hover:text-white"
+            >
+              Dashboard
+            </Link>
+
+            <a
+              href="https://github.com/Shadow-Stack-Labs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-slate-400 hover:text-white"
+            >
+              GitHub ↗
+            </a>
+          </nav>
         </header>
 
+        {/* HERO */}
         <section className="py-24 md:py-36">
           <p className="mb-5 text-xs font-semibold uppercase tracking-[0.3em] text-blue-400">
             Web3 Development Studio
@@ -75,12 +106,19 @@ export default function Home() {
           </p>
 
           <div className="mt-10 flex flex-wrap gap-4">
-            <a
-              href="#ecosystem"
-              className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold hover:bg-blue-400"
+            <Link
+              href="/pay"
+              className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-400"
             >
-              Explore Ecosystem
-            </a>
+              Explore SSL Pay →
+            </Link>
+
+            <Link
+              href="/pay/dashboard"
+              className="rounded-lg border border-white/20 px-6 py-3 text-sm font-semibold hover:border-blue-400"
+            >
+              Merchant Dashboard
+            </Link>
 
             <a
               href="https://github.com/Shadow-Stack-Labs/web3-ecosystem"
@@ -93,6 +131,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ECOSYSTEM */}
         <section
           id="ecosystem"
           className="border-t border-white/10 py-20"
@@ -116,7 +155,7 @@ export default function Home() {
                 key={product.name}
                 className="rounded-xl border border-white/10 bg-[#111A29] p-7 transition hover:border-blue-400/50"
               >
-                <div className="mb-6 flex items-center justify-between gap-3">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs uppercase tracking-wider text-blue-400">
                     {product.category}
                   </span>
@@ -133,11 +172,21 @@ export default function Home() {
                 <p className="mt-3 text-sm leading-6 text-slate-400">
                   {product.description}
                 </p>
+
+                {product.href && (
+                  <Link
+                    href={product.href}
+                    className="mt-5 inline-block text-sm font-semibold text-blue-400 hover:text-blue-300"
+                  >
+                    Explore SSL Pay →
+                  </Link>
+                )}
               </article>
             ))}
           </div>
         </section>
 
+        {/* OUR APPROACH */}
         <section className="border-t border-white/10 py-20">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-blue-400">
             Our Approach
@@ -154,10 +203,10 @@ export default function Home() {
           </p>
         </section>
 
-        
-<footer className="border-t border-white/10 py-8 text-sm text-slate-500">
-  © 2026 Shadow Stack Labs. Building practical Web3 infrastructure.
-</footer>
+        {/* FOOTER */}
+        <footer className="border-t border-white/10 py-8 text-sm text-slate-500">
+          © 2026 Shadow Stack Labs. Building practical Web3 infrastructure.
+        </footer>
 
       </div>
     </main>
