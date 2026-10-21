@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type PaymentStatus =
@@ -22,6 +22,46 @@ export default function MerchantDashboard() {
   const [orderReference, setOrderReference] = useState("");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+  const controller = new AbortController();
+
+  async function fetchPayments() {
+    try {
+      const response = await fetch("/api/payments", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to load payment requests.");
+      }
+
+      const data: { payments: Payment[] } =
+        await response.json();
+
+      if (!controller.signal.aborted) {
+        setPayments(data.payments);
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        setMessage("Unable to load payment requests.");
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }
+
+  void fetchPayments();
+
+  return () => {
+    controller.abort();
+  };
+}, []);
 
   const totalRequests = payments.length;
 
@@ -37,8 +77,12 @@ export default function MerchantDashboard() {
     .filter((payment) => payment.status === "Confirmed")
     .reduce((total, payment) => total + payment.amount, 0);
 
-  function createPaymentRequest(event: React.FormEvent<HTMLFormElement>) {
+  async function createPaymentRequest(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
+    if (submitting) return;
 
     const parsedAmount = Number(amount);
     const reference = orderReference.trim();
@@ -48,7 +92,9 @@ export default function MerchantDashboard() {
       parsedAmount <= 0 ||
       !/^\d+(\.\d{1,2})?$/.test(amount.trim())
     ) {
-      setMessage("Enter a valid USDC amount with up to 2 decimals.");
+      setMessage(
+        "Enter a valid USDC amount with up to 2 decimals."
+      );
       return;
     }
 
@@ -57,31 +103,68 @@ export default function MerchantDashboard() {
       return;
     }
 
-    if (
-      payments.some(
-        (payment) => payment.orderReference === reference
-      )
-    ) {
-      setMessage("This order reference already exists in the demo.");
-      return;
+    setSubmitting(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount,
+          orderReference: reference,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ?? "Unable to create payment request."
+        );
+      }
+
+      setPayments((previous) => [
+        data.payment as Payment,
+        ...previous.filter(
+          (payment) => payment.id !== data.payment.id
+        ),
+      ]);
+
+      setAmount("");
+      setOrderReference("");
+
+      setMessage(
+        `Demo payment request created for ${reference}.`
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to create payment request."
+      );
+    } finally {
+      setSubmitting(false);
     }
+  }
 
-    const newPayment: Payment = {
-      id: crypto.randomUUID(),
-      orderReference: reference,
-      amount: parsedAmount,
-      status: "Awaiting Payment",
-      createdAt: new Date().toISOString(),
-    };
+  function checkoutPath(id: string) {
+    return `/pay/checkout/${encodeURIComponent(id)}`;
+  }
 
-    setPayments((previous) => [newPayment, ...previous]);
+  async function copyCheckoutLink(id: string) {
+    const url = `${window.location.origin}${checkoutPath(id)}`;
 
-    setAmount("");
-    setOrderReference("");
-
-    setMessage(
-      `Demo payment request created for ${reference}.`
-    );
+    try {
+      await navigator.clipboard.writeText(url);
+      setMessage("Checkout link copied.");
+    } catch {
+      setMessage(
+        "Unable to copy automatically. Open the checkout link and copy the address."
+      );
+    }
   }
 
   function formatDate(value: string) {
@@ -91,13 +174,9 @@ export default function MerchantDashboard() {
   return (
     <main className="min-h-screen bg-[#080D16] text-white">
       <div className="mx-auto max-w-6xl px-6">
-
         {/* HEADER */}
         <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/10 py-6">
-          <Link
-            href="/pay"
-            className="text-xl font-bold"
-          >
+          <Link href="/pay" className="text-xl font-bold">
             SSL <span className="text-blue-400">PAY</span>
           </Link>
 
@@ -144,7 +223,6 @@ export default function MerchantDashboard() {
             <p className="text-sm text-slate-400">
               Payment Requests
             </p>
-
             <p className="mt-3 text-3xl font-semibold">
               {totalRequests}
             </p>
@@ -154,7 +232,6 @@ export default function MerchantDashboard() {
             <p className="text-sm text-slate-400">
               Awaiting Payment
             </p>
-
             <p className="mt-3 text-3xl font-semibold text-yellow-400">
               {pendingPayments}
             </p>
@@ -164,7 +241,6 @@ export default function MerchantDashboard() {
             <p className="text-sm text-slate-400">
               Confirmed Payments
             </p>
-
             <p className="mt-3 text-3xl font-semibold text-green-400">
               {confirmedPayments}
             </p>
@@ -174,7 +250,6 @@ export default function MerchantDashboard() {
             <p className="text-sm text-slate-400">
               Confirmed Volume
             </p>
-
             <p className="mt-3 text-3xl font-semibold">
               ${confirmedVolume.toFixed(2)}
             </p>
@@ -247,9 +322,12 @@ export default function MerchantDashboard() {
               <div className="md:col-span-2">
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-400"
+                  disabled={submitting}
+                  className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Create Demo Payment Request →
+                  {submitting
+                    ? "Creating Request..."
+                    : "Create Demo Payment Request →"}
                 </button>
 
                 {message && (
@@ -278,36 +356,37 @@ export default function MerchantDashboard() {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#111A29]">
-            <table className="w-full min-w-[650px] text-left">
+            <table className="w-full min-w-[850px] text-left">
               <thead className="border-b border-white/10 text-sm text-slate-400">
                 <tr>
                   <th className="px-6 py-4">
                     Order Reference
                   </th>
-
-                  <th className="px-6 py-4">
-                    Amount
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Created
-                  </th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Created</th>
+                  <th className="px-6 py-4">Checkout</th>
                 </tr>
               </thead>
 
               <tbody>
-                {payments.length === 0 ? (
+                {loading ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-6 py-12 text-center text-sm text-slate-400"
                     >
-                      No payment requests yet.
-                      Create your first demo request above.
+                      Loading payment requests...
+                    </td>
+                  </tr>
+                ) : payments.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-12 text-center text-sm text-slate-400"
+                    >
+                      No payment requests yet. Create your
+                      first demo request above.
                     </td>
                   </tr>
                 ) : (
@@ -333,6 +412,27 @@ export default function MerchantDashboard() {
                       <td className="px-6 py-5 text-slate-400">
                         {formatDate(payment.createdAt)}
                       </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex flex-wrap gap-3">
+                          <Link
+                            href={checkoutPath(payment.id)}
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            Open Checkout
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void copyCheckoutLink(payment.id)
+                            }
+                            className="text-slate-300 hover:text-white"
+                          >
+                            Copy Link
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -341,19 +441,18 @@ export default function MerchantDashboard() {
           </div>
 
           <p className="mt-5 text-xs leading-6 text-slate-500">
-            Demo only. Requests are stored in browser memory
-            and disappear when the page is refreshed.
-            No wallet connection, USDC transfer, blockchain
-            verification, or order fulfillment is enabled.
+            Demo only. Requests are stored temporarily in
+            server memory and may disappear after a restart,
+            code reload, or server instance change. Checkout
+            links are not yet connected to blockchain settlement.
+            No USDC transfer verification or order fulfillment
+            is enabled.
           </p>
         </section>
 
         {/* FOOTER */}
         <footer className="border-t border-white/10 py-8 text-sm text-slate-500">
-          <Link
-            href="/pay"
-            className="hover:text-white"
-          >
+          <Link href="/pay" className="hover:text-white">
             ← Back to SSL Pay
           </Link>
         </footer>
