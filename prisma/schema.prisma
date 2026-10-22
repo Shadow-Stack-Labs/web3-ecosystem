@@ -1,0 +1,18 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  orderReference String   @unique
+  amount         Decimal
+  status         String   @default("Awaiting Payment")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

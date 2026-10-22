@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { payments } from "@/lib/paymentStore";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   _request: Request,
@@ -8,19 +8,36 @@ export async function GET(
 ) {
   const { id } = await context.params;
 
-  const payment = payments.find(
-    (item) => item.id === id
-  );
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+    });
 
-  if (!payment) {
+    if (!payment) {
+      return NextResponse.json(
+        { error: "Payment request not found." },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Payment request not found." },
-      { status: 404 }
+      {
+        payment: {
+          id: payment.id,
+          orderReference: payment.orderReference,
+          amount: payment.amount.toNumber(),
+          status: payment.status,
+          createdAt: payment.createdAt.toISOString(),
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error("Payment lookup failed:", error);
+
+    return NextResponse.json(
+      { error: "Unable to load payment request." },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json(
-    { payment },
-    { headers: { "Cache-Control": "no-store" } }
-  );
 }

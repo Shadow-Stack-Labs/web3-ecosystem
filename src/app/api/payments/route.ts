@@ -1,45 +1,104 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { payments, type Payment } from "@/lib/paymentStore";
+import { Prisma } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+
+function formatPayment(payment: {
+  id: string;
+  orderReference: string;
+  amount: Prisma.Decimal;
+  status: string;
+  createdAt: Date;
+}) {
+  return {
+    id: payment.id,
+    orderReference: payment.orderReference,
+    amount: payment.amount.toNumber(),
+    status: payment.status,
+    createdAt: payment.createdAt.toISOString(),
+  };
+}
 
 export async function GET() {
-  return NextResponse.json(
-    { payments },
-    { headers: { "Cache-Control": "no-store" } }
-  );
+  try {
+    const payments = await prisma.payment.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(
+      { payments: payments.map(formatPayment) },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error("Payment list failed:", error);
+
+    return NextResponse.json(
+      { error: "Unable to load payment requests." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
+  let body: unknown;
+
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON request." },
+      { status: 400 }
+    );
+  }
 
-    const amount = Number(body.amount);
-    const orderReference = String(
-      body.orderReference ?? ""
-    ).trim();
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json(
+      { error: "Invalid payment request." },
+      { status: 400 }
+    );
+  }
 
+  const input = body as Record<string, unknown>;
+  const amountText = String(input.amount ?? "");
+  const amount = Number(amountText);
+  const orderReference = String(input.orderReference ?? "").trim();
+
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    !/^\d+(\.\d{1,2})?$/.test(amountText)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid USDC amount." },
+      { status: 400 }
+    );
+  }
+
+  if (!orderReference || orderReference.length > 100) {
+    return NextResponse.json(
+      { error: "Invalid order reference." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const payment = await prisma.payment.create({
+      data: {
+        id: crypto.randomUUID(),
+        orderReference,
+        amount: new Prisma.Decimal(amountText),
+        status: "Awaiting Payment",
+      },
+    });
+
+    return NextResponse.json(
+      { payment: formatPayment(payment) },
+      { status: 201 }
+    );
+  } catch (error) {
     if (
-      !Number.isFinite(amount) ||
-      amount <= 0 ||
-      !/^\d+(\.\d{1,2})?$/.test(String(body.amount))
-    ) {
-      return NextResponse.json(
-        { error: "Invalid USDC amount." },
-        { status: 400 }
-      );
-    }
-
-    if (!orderReference || orderReference.length > 100) {
-      return NextResponse.json(
-        { error: "Invalid order reference." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      payments.some(
-        (payment) => payment.orderReference === orderReference
-      )
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
     ) {
       return NextResponse.json(
         { error: "Order reference already exists." },
@@ -47,24 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payment: Payment = {
-      id: crypto.randomUUID(),
-      orderReference,
-      amount,
-      status: "Awaiting Payment",
-      createdAt: new Date().toISOString(),
-    };
+    console.error("Payment creation failed:", error);
 
-    payments.unshift(payment);
-
-    return NextResponse.json(
-      { payment },
-      { status: 201 }
-    );
-  } catch {
     return NextResponse.json(
       { error: "Unable to create payment request." },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }
