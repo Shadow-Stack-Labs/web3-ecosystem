@@ -1,7 +1,7 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 function formatPayment(payment: {
   id: string;
@@ -21,8 +21,22 @@ function formatPayment(payment: {
 
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
     const payments = await prisma.payment.findMany({
-      orderBy: { createdAt: "desc" },
+      where: {
+        merchantId: user.merchantId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
     return NextResponse.json(
@@ -40,6 +54,35 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
+
+  if (!origin || origin !== request.nextUrl.origin) {
+    return NextResponse.json(
+      { error: "Invalid request origin." },
+      { status: 403 }
+    );
+  }
+
+  let user;
+
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    console.error("Payment authentication failed:", error);
+
+    return NextResponse.json(
+      { error: "Unable to authenticate request." },
+      { status: 500 }
+    );
+  }
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 }
+    );
+  }
+
   let body: unknown;
 
   try {
@@ -88,6 +131,7 @@ export async function POST(request: NextRequest) {
         orderReference,
         amount: new Prisma.Decimal(amountText),
         status: "Awaiting Payment",
+        merchantId: user.merchantId,
       },
     });
 

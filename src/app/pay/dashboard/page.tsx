@@ -1,13 +1,9 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type PaymentStatus =
-  | "Awaiting Payment"
-  | "Pending Verification"
-  | "Confirmed";
+type PaymentStatus = "Awaiting Payment" | "Pending Verification" | "Confirmed";
 
 type Payment = {
   id: string;
@@ -26,60 +22,57 @@ export default function MerchantDashboard() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-  const controller = new AbortController();
+    const controller = new AbortController();
 
-  async function fetchPayments() {
-    try {
-      const response = await fetch("/api/payments", {
-        cache: "no-store",
-        signal: controller.signal,
-      });
+    async function fetchPayments() {
+      try {
+        const response = await fetch("/api/payments", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        throw new Error("Unable to load payment requests.");
-      }
+        if (!response.ok) {
+          throw new Error("Unable to load payment requests.");
+        }
 
-      const data: { payments: Payment[] } =
-        await response.json();
+        const data: { payments: Payment[] } = await response.json();
 
-      if (!controller.signal.aborted) {
-        setPayments(data.payments);
-      }
-    } catch {
-      if (!controller.signal.aborted) {
-        setMessage("Unable to load payment requests.");
-      }
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setPayments(data.payments);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setMessage("Unable to load payment requests.");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
-  }
 
-  void fetchPayments();
+    void fetchPayments();
 
-  return () => {
-    controller.abort();
-  };
-}, []);
+    return () => {
+      controller.abort();
+    };
+  }, []);
 
   const totalRequests = payments.length;
 
   const confirmedPayments = payments.filter(
-    (payment) => payment.status === "Confirmed"
+    (payment) => payment.status === "Confirmed",
   ).length;
 
   const pendingPayments = payments.filter(
-    (payment) => payment.status !== "Confirmed"
+    (payment) => payment.status !== "Confirmed",
   ).length;
 
   const confirmedVolume = payments
     .filter((payment) => payment.status === "Confirmed")
     .reduce((total, payment) => total + payment.amount, 0);
 
-  async function createPaymentRequest(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
+  async function createPaymentRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (submitting) return;
@@ -92,9 +85,7 @@ export default function MerchantDashboard() {
       parsedAmount <= 0 ||
       !/^\d+(\.\d{1,2})?$/.test(amount.trim())
     ) {
-      setMessage(
-        "Enter a valid USDC amount with up to 2 decimals."
-      );
+      setMessage("Enter a valid USDC amount with up to 2 decimals.");
       return;
     }
 
@@ -121,29 +112,23 @@ export default function MerchantDashboard() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error ?? "Unable to create payment request."
-        );
+        throw new Error(data.error ?? "Unable to create payment request.");
       }
 
       setPayments((previous) => [
         data.payment as Payment,
-        ...previous.filter(
-          (payment) => payment.id !== data.payment.id
-        ),
+        ...previous.filter((payment) => payment.id !== data.payment.id),
       ]);
 
       setAmount("");
       setOrderReference("");
 
-      setMessage(
-        `Demo payment request created for ${reference}.`
-      );
+      setMessage(`Demo payment request created for ${reference}.`);
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to create payment request."
+          : "Unable to create payment request.",
       );
     } finally {
       setSubmitting(false);
@@ -162,7 +147,7 @@ export default function MerchantDashboard() {
       setMessage("Checkout link copied.");
     } catch {
       setMessage(
-        "Unable to copy automatically. Open the checkout link and copy the address."
+        "Unable to copy automatically. Open the checkout link and copy the address.",
       );
     }
   }
@@ -181,10 +166,7 @@ export default function MerchantDashboard() {
           </Link>
 
           <nav className="flex flex-wrap items-center gap-5">
-            <Link
-              href="/"
-              className="text-sm text-slate-400 hover:text-white"
-            >
+            <Link href="/" className="text-sm text-slate-400 hover:text-white">
               Home
             </Link>
 
@@ -207,49 +189,37 @@ export default function MerchantDashboard() {
             Merchant Overview
           </p>
 
-          <h1 className="mt-3 text-4xl font-semibold">
-            Payment Dashboard
-          </h1>
+          <h1 className="mt-3 text-4xl font-semibold">Payment Dashboard</h1>
 
           <p className="mt-4 max-w-2xl text-slate-400">
-            Create and monitor demonstration USDC payment
-            requests. Blockchain settlement is not yet connected.
+            Create and monitor demonstration USDC payment requests. Blockchain
+            settlement is not yet connected.
           </p>
         </section>
 
         {/* STATISTICS */}
         <section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-xl border border-white/10 bg-[#111A29] p-6">
-            <p className="text-sm text-slate-400">
-              Payment Requests
-            </p>
-            <p className="mt-3 text-3xl font-semibold">
-              {totalRequests}
-            </p>
+            <p className="text-sm text-slate-400">Payment Requests</p>
+            <p className="mt-3 text-3xl font-semibold">{totalRequests}</p>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-[#111A29] p-6">
-            <p className="text-sm text-slate-400">
-              Awaiting Payment
-            </p>
+            <p className="text-sm text-slate-400">Awaiting Payment</p>
             <p className="mt-3 text-3xl font-semibold text-yellow-400">
               {pendingPayments}
             </p>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-[#111A29] p-6">
-            <p className="text-sm text-slate-400">
-              Confirmed Payments
-            </p>
+            <p className="text-sm text-slate-400">Confirmed Payments</p>
             <p className="mt-3 text-3xl font-semibold text-green-400">
               {confirmedPayments}
             </p>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-[#111A29] p-6">
-            <p className="text-sm text-slate-400">
-              Confirmed Volume
-            </p>
+            <p className="text-sm text-slate-400">Confirmed Volume</p>
             <p className="mt-3 text-3xl font-semibold">
               ${confirmedVolume.toFixed(2)}
             </p>
@@ -260,13 +230,11 @@ export default function MerchantDashboard() {
         <section className="py-16">
           <div className="rounded-xl border border-white/10 bg-[#111A29] p-8">
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold">
-                Create Payment Request
-              </h2>
+              <h2 className="text-2xl font-semibold">Create Payment Request</h2>
 
               <p className="mt-3 text-sm text-slate-400">
-                Generate a demonstration USDC payment request
-                for a merchant order.
+                Generate a demonstration USDC payment request for a merchant
+                order.
               </p>
             </div>
 
@@ -289,9 +257,7 @@ export default function MerchantDashboard() {
                   step="0.01"
                   placeholder="49.99"
                   value={amount}
-                  onChange={(event) =>
-                    setAmount(event.target.value)
-                  }
+                  onChange={(event) => setAmount(event.target.value)}
                   required
                   className="w-full rounded-lg border border-white/10 bg-[#080D16] px-4 py-3 text-white outline-none focus:border-blue-400"
                 />
@@ -311,9 +277,7 @@ export default function MerchantDashboard() {
                   maxLength={100}
                   placeholder="ORDER-1001"
                   value={orderReference}
-                  onChange={(event) =>
-                    setOrderReference(event.target.value)
-                  }
+                  onChange={(event) => setOrderReference(event.target.value)}
                   required
                   className="w-full rounded-lg border border-white/10 bg-[#080D16] px-4 py-3 text-white outline-none focus:border-blue-400"
                 />
@@ -331,10 +295,7 @@ export default function MerchantDashboard() {
                 </button>
 
                 {message && (
-                  <p
-                    role="status"
-                    className="mt-4 text-sm text-blue-300"
-                  >
+                  <p role="status" className="mt-4 text-sm text-blue-300">
                     {message}
                   </p>
                 )}
@@ -346,9 +307,7 @@ export default function MerchantDashboard() {
         {/* TRANSACTION TABLE */}
         <section className="pb-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold">
-              Payment Requests
-            </h2>
+            <h2 className="text-2xl font-semibold">Payment Requests</h2>
 
             <span className="text-sm text-slate-400">
               {payments.length} requests
@@ -359,9 +318,7 @@ export default function MerchantDashboard() {
             <table className="w-full min-w-[850px] text-left">
               <thead className="border-b border-white/10 text-sm text-slate-400">
                 <tr>
-                  <th className="px-6 py-4">
-                    Order Reference
-                  </th>
+                  <th className="px-6 py-4">Order Reference</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Created</th>
@@ -385,8 +342,8 @@ export default function MerchantDashboard() {
                       colSpan={5}
                       className="px-6 py-12 text-center text-sm text-slate-400"
                     >
-                      No payment requests yet. Create your
-                      first demo request above.
+                      No payment requests yet. Create your first demo request
+                      above.
                     </td>
                   </tr>
                 ) : (
@@ -424,9 +381,7 @@ export default function MerchantDashboard() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              void copyCheckoutLink(payment.id)
-                            }
+                            onClick={() => void copyCheckoutLink(payment.id)}
                             className="text-slate-300 hover:text-white"
                           >
                             Copy Link
@@ -441,12 +396,10 @@ export default function MerchantDashboard() {
           </div>
 
           <p className="mt-5 text-xs leading-6 text-slate-500">
-            Demo only. Requests are stored temporarily in
-            server memory and may disappear after a restart,
-            code reload, or server instance change. Checkout
-            links are not yet connected to blockchain settlement.
-            No USDC transfer verification or order fulfillment
-            is enabled.
+            Demo only. Payment requests are stored in a persistent development
+            database. Checkout links are not yet connected to blockchain
+            settlement. No USDC transfer verification or order fulfillment is
+            enabled.
           </p>
         </section>
 

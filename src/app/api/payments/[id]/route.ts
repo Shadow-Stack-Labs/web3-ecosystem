@@ -1,16 +1,28 @@
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await context.params;
-
   try {
-    const payment = await prisma.payment.findUnique({
-      where: { id },
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await context.params;
+
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id,
+        merchantId: user.merchantId,
+      },
     });
 
     if (!payment) {
@@ -30,7 +42,11 @@ export async function GET(
           createdAt: payment.createdAt.toISOString(),
         },
       },
-      { headers: { "Cache-Control": "no-store" } }
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
   } catch (error) {
     console.error("Payment lookup failed:", error);
